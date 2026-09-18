@@ -1,6 +1,6 @@
 -- ============================================================
 -- Projekt: Buchausleih-Anwendung – Data-Mart-Erstellung in SQL
--- Phase 2: Testfälle
+-- Phase 2 / Phase 3: Testfälle und Integritätsprüfungen
 -- DBMS: MySQL
 -- ============================================================
 
@@ -67,7 +67,6 @@ ORDER BY ba.Buchangebot_ID;
 -- Es werden ausschließlich Buchangebote angezeigt,
 -- bei denen verfuegbar = 1 ist.
 -- ============================================================
-USE buchausleihe_db;
 SELECT
     ba.Buchangebot_ID,
     b.Titel,
@@ -387,3 +386,179 @@ FROM AUSLEIHANFRAGE aa
 INNER JOIN ZEITSLOT z
     ON aa.Zeitslot_ID = z.Zeitslot_ID
 WHERE aa.Buchangebot_ID <> z.Buchangebot_ID;
+
+
+-- ============================================================
+-- TESTFALL 17: Trigger – INSERT in AUSLEIHE
+-- ============================================================
+-- Ziel:
+-- Prüfung, ob der Trigger verhindert, dass aus einer
+-- nicht angenommenen Ausleihanfrage eine Ausleihe entsteht.
+--
+-- Anfrage_ID 3 besitzt den Status 'offen'.
+--
+-- Erwartetes Ergebnis:
+-- Der INSERT-Befehl muss mit Error Code 1644 abgelehnt werden.
+-- Meldung:
+-- Ausleihe nicht möglich: Die Ausleihanfrage ist nicht angenommen.
+-- ============================================================
+SELECT
+    Anfrage_ID,
+    Status
+FROM AUSLEIHANFRAGE
+WHERE Anfrage_ID = 3;
+
+INSERT INTO AUSLEIHE (
+    Anfrage_ID,
+    Ausleihdatum,
+    vereinbartes_Rueckgabedatum,
+    tatsaechliches_Rueckgabedatum,
+    Status
+)
+VALUES (
+    3,
+    '2026-09-18',
+    '2026-09-25',
+    NULL,
+    'aktiv'
+);
+
+-- ============================================================
+-- TESTFALL 18: Trigger – INSERT mit falschem Zeitslot
+-- ============================================================
+-- Ziel:
+-- Prüfung, ob der Trigger verhindert, dass bei einer neuen
+-- Ausleihanfrage ein Zeitslot eines anderen Buchangebots
+-- ausgewählt wird.
+--
+-- Zeitslot_ID 1 gehört zu Buchangebot_ID 1.
+-- Im Test wird er absichtlich für Buchangebot_ID 2 verwendet.
+--
+-- Erwartetes Ergebnis:
+-- Der INSERT-Befehl muss mit Error Code 1644 abgelehnt werden.
+-- Meldung:
+-- Zeitslot nicht möglich: Der Zeitslot gehört zu einem anderen Buchangebot.
+-- ============================================================
+SELECT
+    Zeitslot_ID,
+    Buchangebot_ID
+FROM ZEITSLOT
+WHERE Zeitslot_ID = 1;
+
+INSERT INTO AUSLEIHANFRAGE (
+    Benutzer_ID,
+    Buchangebot_ID,
+    Uebergabe_ID,
+    Zeitslot_ID,
+    gewuenschter_Start,
+    gewuenschtes_Ende,
+    Anfragedatum,
+    Status
+)
+VALUES (
+    3,
+    2,
+    2,
+    1,
+    '2026-09-20',
+    '2026-09-25',
+    '2026-09-18',
+    'offen'
+);
+
+-- ============================================================
+-- TESTFALL 19: Trigger – UPDATE in AUSLEIHE
+-- ============================================================
+-- Ziel:
+-- Prüfung, ob der UPDATE-Trigger verhindert, dass eine
+-- bestehende Ausleihe nachträglich einer nicht angenommenen
+-- Ausleihanfrage zugeordnet wird.
+--
+-- Ausleihe_ID 1 existiert bereits.
+-- Anfrage_ID 3 besitzt den Status 'offen'.
+--
+-- Erwartetes Ergebnis:
+-- Der UPDATE-Befehl muss mit Error Code 1644 abgelehnt werden.
+-- Meldung:
+-- Ausleihe nicht möglich: Die Ausleihanfrage ist nicht angenommen.
+-- ============================================================
+SELECT
+    Ausleihe_ID,
+    Anfrage_ID
+FROM AUSLEIHE
+WHERE Ausleihe_ID = 1;
+
+SELECT
+    Anfrage_ID,
+    Status
+FROM AUSLEIHANFRAGE
+WHERE Anfrage_ID = 3;
+
+UPDATE AUSLEIHE
+SET Anfrage_ID = 3
+WHERE Ausleihe_ID = 1;
+
+-- ============================================================
+-- TESTFALL 20: Trigger – UPDATE mit falschem Zeitslot
+-- ============================================================
+-- Ziel:
+-- Prüfung, ob der UPDATE-Trigger verhindert, dass einer
+-- bestehenden Ausleihanfrage nachträglich ein Zeitslot
+-- eines anderen Buchangebots zugeordnet wird.
+--
+-- Anfrage_ID 2 gehört zu Buchangebot_ID 2.
+-- Zeitslot_ID 1 gehört dagegen zu Buchangebot_ID 1.
+--
+-- Erwartetes Ergebnis:
+-- Der UPDATE-Befehl muss mit Error Code 1644 abgelehnt werden.
+-- Meldung:
+-- Zeitslot nicht möglich: Der Zeitslot gehört zu einem anderen Buchangebot.
+-- ============================================================
+SELECT
+    Anfrage_ID,
+    Buchangebot_ID,
+    Zeitslot_ID
+FROM AUSLEIHANFRAGE
+WHERE Anfrage_ID = 2;
+
+SELECT
+    Zeitslot_ID,
+    Buchangebot_ID
+FROM ZEITSLOT
+WHERE Zeitslot_ID = 1;
+
+UPDATE AUSLEIHANFRAGE
+SET Zeitslot_ID = 1
+WHERE Anfrage_ID = 2;
+
+-- ============================================================
+-- ABSCHLIESSENDE KONTROLLE DER TRIGGER-TESTS
+-- ============================================================
+-- Ziel:
+-- Nachweis, dass die vier absichtlich ungültigen INSERT- und
+-- UPDATE-Anweisungen keine Testdaten verändert haben.
+--
+-- Erwartetes Ergebnis:
+-- 50 Ausleihanfragen
+-- 30 Ausleihen
+-- Ausleihe_ID 1 behält Anfrage_ID 1
+-- Anfrage_ID 2 behält Buchangebot_ID 2 und Zeitslot_ID 2
+-- ============================================================
+SELECT COUNT(*) AS Anzahl_Ausleihanfragen
+FROM AUSLEIHANFRAGE;
+
+SELECT COUNT(*) AS Anzahl_Ausleihen
+FROM AUSLEIHE;
+
+SELECT
+    Ausleihe_ID,
+    Anfrage_ID
+FROM AUSLEIHE
+WHERE Ausleihe_ID = 1;
+
+SELECT
+    Anfrage_ID,
+    Buchangebot_ID,
+    Zeitslot_ID
+FROM AUSLEIHANFRAGE
+WHERE Anfrage_ID = 2;

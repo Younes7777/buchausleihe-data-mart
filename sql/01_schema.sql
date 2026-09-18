@@ -1,6 +1,7 @@
 -- ============================================================
 -- Projekt: Buchausleih-Anwendung – Data-Mart-Erstellung in SQL
--- Phase 2: Implementierung der relationalen Datenbank
+-- Phase 3: Finalisierte relationale Datenbank
+-- Weiterentwicklung auf Basis des Tutorfeedbacks aus Phase 2
 -- DBMS: MySQL
 -- ============================================================
 
@@ -351,3 +352,123 @@ SELECT
 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
 WHERE TABLE_SCHEMA = 'buchausleihe_db'
 ORDER BY TABLE_NAME, CONSTRAINT_TYPE, CONSTRAINT_NAME;
+
+-- ============================================================
+-- TRIGGER ZUR ABSICHERUNG VON GESCHÄFTSREGELN
+-- ============================================================
+
+DELIMITER $$
+
+
+-- ------------------------------------------------------------
+-- Trigger 1:
+-- Eine neue Ausleihe darf nur aus einer angenommenen
+-- Ausleihanfrage entstehen.
+-- ------------------------------------------------------------
+
+CREATE TRIGGER trg_ausleihe_nur_angenommene_anfrage
+BEFORE INSERT ON AUSLEIHE
+FOR EACH ROW
+BEGIN
+    DECLARE v_status VARCHAR(20);
+
+    SELECT Status
+    INTO v_status
+    FROM AUSLEIHANFRAGE
+    WHERE Anfrage_ID = NEW.Anfrage_ID;
+
+    IF v_status <> 'angenommen' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+            'Ausleihe nicht möglich: Die Ausleihanfrage ist nicht angenommen.';
+    END IF;
+END$$
+
+
+-- ------------------------------------------------------------
+-- Trigger 2:
+-- Bei einer neuen Ausleihanfrage muss ein ausgewählter
+-- Zeitslot zum Buchangebot der Anfrage gehören.
+-- ------------------------------------------------------------
+
+CREATE TRIGGER trg_zeitslot_passend_zum_buchangebot
+BEFORE INSERT ON AUSLEIHANFRAGE
+FOR EACH ROW
+BEGIN
+    DECLARE v_buchangebot_id INT;
+
+    IF NEW.Zeitslot_ID IS NOT NULL THEN
+
+        SELECT Buchangebot_ID
+        INTO v_buchangebot_id
+        FROM ZEITSLOT
+        WHERE Zeitslot_ID = NEW.Zeitslot_ID;
+
+        IF v_buchangebot_id <> NEW.Buchangebot_ID THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Zeitslot nicht möglich: Der Zeitslot gehört zu einem anderen Buchangebot.';
+        END IF;
+
+    END IF;
+END$$
+
+
+-- ------------------------------------------------------------
+-- Trigger 3:
+-- Auch bei einer Änderung einer Ausleihe muss die zugehörige
+-- Ausleihanfrage den Status 'angenommen' besitzen.
+-- ------------------------------------------------------------
+
+CREATE TRIGGER trg_ausleihe_nur_angenommene_anfrage_update
+BEFORE UPDATE ON AUSLEIHE
+FOR EACH ROW
+BEGIN
+    DECLARE v_status VARCHAR(20);
+
+    SELECT Status
+    INTO v_status
+    FROM AUSLEIHANFRAGE
+    WHERE Anfrage_ID = NEW.Anfrage_ID;
+
+    IF v_status <> 'angenommen' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+            'Ausleihe nicht möglich: Die Ausleihanfrage ist nicht angenommen.';
+    END IF;
+END$$
+
+
+-- ------------------------------------------------------------
+-- Trigger 4:
+-- Auch bei einer Änderung einer Ausleihanfrage muss ein
+-- ausgewählter Zeitslot zum Buchangebot der Anfrage gehören.
+-- ------------------------------------------------------------
+
+CREATE TRIGGER trg_zeitslot_passend_zum_buchangebot_update
+BEFORE UPDATE ON AUSLEIHANFRAGE
+FOR EACH ROW
+BEGIN
+    DECLARE v_buchangebot_id INT;
+
+    IF NEW.Zeitslot_ID IS NOT NULL THEN
+
+        SELECT Buchangebot_ID
+        INTO v_buchangebot_id
+        FROM ZEITSLOT
+        WHERE Zeitslot_ID = NEW.Zeitslot_ID;
+
+        IF v_buchangebot_id <> NEW.Buchangebot_ID THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Zeitslot nicht möglich: Der Zeitslot gehört zu einem anderen Buchangebot.';
+        END IF;
+
+    END IF;
+END$$
+
+
+DELIMITER ;
+
+SHOW TABLES;
+SHOW TRIGGERS;
