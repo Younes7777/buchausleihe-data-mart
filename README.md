@@ -20,6 +20,7 @@ Die Datenbank wurde mit **MySQL** entwickelt und umfasst:
 - 724 Testdatensätze
 - Primär- und Fremdschlüssel
 - NOT NULL-, UNIQUE- und CHECK-Constraints
+- 4 BEFORE-Trigger zur Absicherung zentraler Geschäftsregeln
 - Normalisierung bis zur dritten Normalform (3NF)
 
 ## 🔄 Zentraler Prozess
@@ -48,9 +49,9 @@ buchausleihe-data-mart/
 
 | Datei | Beschreibung |
 |---|---|
-| `sql/01_schema.sql` | Erstellt die Datenbank, Tabellen, Beziehungen und Constraints |
+| `sql/01_schema.sql` | Erstellt die Datenbank, Tabellen, Beziehungen, Constraints und vier Trigger |
 | `sql/02_testdaten.sql` | Befüllt alle Tabellen mit Testdaten |
-| `sql/03_testfaelle.sql` | Enthält 16 Testfälle zur Überprüfung der Datenbank |
+| `sql/03_testfaelle.sql` | Enthält 20 Testfälle zur Überprüfung der Datenbank und ihrer Integritätsregeln |
 
 ### Dokumentation
 
@@ -75,6 +76,7 @@ Nach der Installation kann die Datenbank beispielsweise mit folgenden Befehlen �
 ```sql
 USE buchausleihe_db;
 SHOW TABLES;
+SHOW TRIGGERS;
 ```
 
 Die Datenbank sollte anschließend **16 Tabellen** enthalten.
@@ -85,7 +87,7 @@ Eine ausführlichere Beschreibung der Einrichtung befindet sich in:
 
 ## 🧪 Tests
 
-Für die Datenbank wurden **16 Testfälle** erstellt. Sie überprüfen unter anderem:
+Für die Datenbank wurden insgesamt **20 Testfälle** dokumentiert. Die ursprünglich 16 Testfälle wurden in Phase 3 um vier gezielte Trigger-Tests erweitert. Sie überprüfen unter anderem:
 
 - Beziehungen zwischen den Tabellen
 - JOIN-Abfragen über mehrere Tabellen
@@ -93,8 +95,9 @@ Für die Datenbank wurden **16 Testfälle** erstellt. Sie überprüfen unter and
 - Aggregationen
 - referenzielle Integrität
 - CHECK- und UNIQUE-Constraints
+- triggerbasierte Geschäftsregeln bei INSERT- und UPDATE-Operationen
 
-Einige Testfälle erzeugen bewusst Fehlermeldungen, um die Wirksamkeit der definierten Constraints nachzuweisen.
+Die vier Trigger-Tests prüfen, dass eine Ausleihe nur aus einer angenommenen Ausleihanfrage entstehen kann und ein ausgewählter Zeitslot zum jeweiligen Buchangebot gehört. Einige Testfälle erzeugen bewusst Fehlermeldungen, um die Wirksamkeit der definierten Constraints und Trigger nachzuweisen.
 
 ## 📊 Testdaten und Metadaten
 
